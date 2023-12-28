@@ -92,7 +92,7 @@ def EC2_instances(ec2_client, sgId, proxySg):
     instanceIds.append(launch_instance(KPName, 't2.large', ClusterPrivateIps[-3], 'gate'))    # launching gatekeeper
     time.sleep(60)
     storeIpAddresses(instanceIds[4])
-    subprocess.run(['sh', './proxy.sh'])
+    subprocess.run(['sh', './setProxy.sh'])
     instanceIds.append(launch_instance(KPName, 't2.large', ClusterPrivateIps[-3], 'proxy'))   # launching proxy
 
     initiate_gatekeeper(instancesIds[-1][1])                                                  # Initiating the gatekeeper with the proxy public ip as the trusted host
