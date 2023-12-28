@@ -8,6 +8,8 @@ sudo apt-get -y install python3-pip;
 sudo pip3 install flask;
 sudo pip3 install sshtunnel;
 sudo pip3 install pandas;
+sudo pip3 install pythonping
+sudo pip3 install pymysql
 cat > server.py << EOF
 from flask import Flask, jsonify, request
 import pymysql
@@ -22,45 +24,45 @@ app = Flask(__name__)
 serversIps = ['172.31.2.2', '172.31.2.3', '172.31.2.4', '172.31.2.5']
 gateIp = ${ip}
 
-def ssh_conn():
+# Open ssh connection with manager node
+def ssh_conn(pkey):
         tunnel = SSHTunnelForwarder(
-        (cluster_hosts[0], 22),
-        ssh_username="ubuntu",
-        ssh_pkey="labsuser.pem",
-        local_bind_address=('127.0.0.1', 3306), #SQL port
-        remote_bind_address=('127.0.0.1', 3306)
-    )
+                        (serversIps[0], 22),
+                        ssh_username="ubuntu",
+                        ssh_pkey=pkey,
+                        local_bind_address=('127.0.0.1', 3306),
+                        remote_bind_address=('127.0.0.1', 3306)
+                    )
     tunnel.start()
+    return tunnel
 
 # estabilishing connection with the mysql database
-def estabilish_conn():
+def estabilish_conn(host):
     connection = pymysql.connect(
-                    host=hostname,
+                    host=host,
                     user='root',
                     password='root',
                     db="sakila",
                     port=3306
                 )
+    return connection
 
 # selecting the routing method Direct, Random, best server
 def routingType(method):
     host = serversIps[0]
     best = 100000
-    if method == 'direct':
-        return serversIps[0]
-    elif method == 'random':
+    if method == 'random':
         i = random.randint(0,3)
         return workersIps[i]
-    elif method == 'best':
+    elif method == 'best':                                            # Chooses the server with the lower latency and without package loss
         for i in serversIps:
             r = ping(i, count=3)
             if best > ping.rtt_avg_ms and ping.packet_loss == 0.0:
                 best = ping.rtt_avg_ms
                 host = i
         return i
-            
-
-    
+    else:
+        return serversIps[0]
 
 # validating the client ip
 def check_origin(ip):
@@ -69,24 +71,19 @@ def check_origin(ip):
     else:
         return False
         
-# validates the incoming request and depending on the validation accept or denies the request
+# Checks if the request came from the gatekeeper then in case of True pose the query accordding to the method indicated on the request
 @app.route("/new_query", methods=["POST"])
 def new_query():
-    if check_origin(request.remote_addr) and check_request_query(request.json['query']):
-        response = request.post(proxyIp, data={"query": request.json['query'], "method": request.json['method']}
-        jsonify({"message": response})
+    if check_origin(request.remote_addr):
+        tunnel = ssh_conn(request.json['pkey'])                                # creates the ssh connection with the manager
+        host = routingType(request.json['method'])                             # select the server accordding to the method indicated by the user
+        dbConn = estabilishConn(host)                                          # estabilish the connection with the database
+        result = pd.read_sql_query(request.json['query'], connection)          # pose the query to the database
+        connection.close()
+        tunnel.close()                                                         # close the connections
+        jsonify({"result": result})
     else:
         jsonify({"message": "Query failed"})
-
-# initiate the ip value of the proxy, can be used only once, is not possible to alter the proxy address once is initialized
-@app.route("/initiate", methods=["POST"])
-def initiate():
-    if not initiated and check_origin(request.remote_addr):
-        initiated = True
-        proxyIp = request.json['ip']
-        jsonify({"message": "Initialization completed"})
-    else:
-        jsonify({"message": "Operation not allowed"})
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
