@@ -3,7 +3,7 @@ import subprocess, pprint, time
 import util
 import requests
 
-def EC2_instances(ec2_client, sgId, proxySg):
+def EC2_instances(ec2_client, sgId):
     instanceIds = []
     amiId = 'ami-06aa3f7caf3a30282' #Os image that will be used in the vm
     ClusterPrivateIps = ['172.31.2.3', '172.31.2.4', '172.31.2.5', '172.31.2.2', '172.31.2.6', '172.31.2.7']
@@ -48,7 +48,7 @@ def EC2_instances(ec2_client, sgId, proxySg):
             return launch_proxy()
             
     # ec2 instance launcher
-    def launch_instance(KPName, Itype, privateIp = None, role = 'worker'):
+    def launch_instance(KPName, Itype, privateIp = None, role = 'worker', proxySg = None):
         response = ec2_client.run_instances(
                     PrivateIpAddress=privateIp,
                     SubnetId='subnet-0facea78a1e94b6cd',
@@ -91,9 +91,10 @@ def EC2_instances(ec2_client, sgId, proxySg):
     launch_cluster(KPName, 'm4.large')                                                        # launching worker
     instanceIds.append(launch_instance(KPName, 't2.large', ClusterPrivateIps[-3], 'gate'))    # launching gatekeeper
     time.sleep(60)
+    proxySg = util.create_sg(ec2_client, 'proxySg', instanceIds[-2][1], 'proxy')              # create security group to allow traffic only from the gatekeeper
     storeIpAddresses(instanceIds[4])
     subprocess.run(['sh', './setProxy.sh'])
-    instanceIds.append(launch_instance(KPName, 't2.large', ClusterPrivateIps[-3], 'proxy'))   # launching proxy
+    instanceIds.append(launch_instance(KPName, 't2.large', ClusterPrivateIps[-3], 'proxy', proxySg))   # launching proxy
 
     initiate_gatekeeper(instancesIds[-1][1])                                                  # Initiating the gatekeeper with the proxy public ip as the trusted host
     
