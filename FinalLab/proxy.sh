@@ -8,8 +8,8 @@ sudo apt-get -y install python3-pip;
 sudo pip3 install flask;
 sudo pip3 install sshtunnel;
 sudo pip3 install pandas;
-sudo pip3 install pythonping
-sudo pip3 install pymysql
+sudo pip3 install pythonping;
+sudo pip3 install pymysql;
 cat > server.py << EOF
 from flask import Flask, jsonify, request
 import pymysql
