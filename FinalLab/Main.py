@@ -20,27 +20,6 @@ def main():
     instancesIds, KPName = ec2_instances.EC2_instances(ec2_client, sgId)
     key = Pkey.from_private_key_file('3rd-assign-key.pem')
 
-    ec2_instances.EC2_instances()
-    #orchestratorIP = instancesIds[-1][1]
-    '''
-    time.sleep(120)
-    # Sending get requests (5 threads)
-    try:
-        print('requesting')
-        web_requests.requests_main(orchestratorIP)
-        print('Requests done!')
-    except Exception as e:
-        print(e)
-
-    time.sleep(60)
-    # terminating resources
-    util.shut_down_instances(ec2_client, instancesIds)
-    time.sleep(120)
-    util.delete_key_pair(ec2_client, KPName)
-    util.delete_security_group(ec2_client, sgId)
-
-    print('All terminated')
-    '''
     return
 
 main()

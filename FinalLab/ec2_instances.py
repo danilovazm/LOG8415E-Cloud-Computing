@@ -37,6 +37,7 @@ def EC2_instances(ec2_client, sgId):
         with open("Mgm-node2.sh", "r") as file:
             script = file.read()
         return script
+
     def scripts(role):
         if role == 'worker':
             return launch_worker()
@@ -51,7 +52,7 @@ def EC2_instances(ec2_client, sgId):
     def launch_instance(KPName, Itype, privateIp = None, role = 'worker', proxySg = None):
         response = ec2_client.run_instances(
                     PrivateIpAddress=privateIp,
-                    SubnetId='subnet-0facea78a1e94b6cd',
+                    SubnetId='subnet-0facea78a1e94b6cd',                                # the subnet which the selected private ip are part of
                     ImageId=amiId,
                     MinCount=1,
                     MaxCount=1,
@@ -67,8 +68,7 @@ def EC2_instances(ec2_client, sgId):
         instance.reload()
         
         pprint.pprint(instance.public_ip_address)
-        return id, instance.public_ip_address
-        return id, instance.public_ip_address
+        return id, instance.public_ip_address               # returning the id and public ip address of the instance
 
     # launch the diffent set of instances
     def launch_cluster(KPName, type):
@@ -76,10 +76,11 @@ def EC2_instances(ec2_client, sgId):
             instanceIds.append(launch_instance(KPName, type, ClusterPrivateIps[i], 'worker'))
 
     # store ip adress of instances in files
-    def storeIpAddresses(instanceId):
+    def storeIpAddresses(instanceIds):
         with open(f"gate.txt", "w") as file:
             file.write(instanceIds[1])
 
+    # sending proxy ip to gatekeeper
     def initiate_gatekeeper(ip):
         requests.post(f'http://{ip}:5000/initiate', data={'ip': ip})
             
@@ -87,16 +88,16 @@ def EC2_instances(ec2_client, sgId):
     # creating key pair and lauching the instances
     KPName = create_key_pair('3rd-assign-key')
     instanceIds.append(launch_instance(KPName, 'm4.large', ClusterPrivateIps[-3], 'mgm'))     # launching manager
-    time.sleep(180)
+    time.sleep(180)                                                                           # waiting the manager to be up
     launch_cluster(KPName, 'm4.large')                                                        # launching worker
     instanceIds.append(launch_instance(KPName, 't2.large', ClusterPrivateIps[-3], 'gate'))    # launching gatekeeper
-    time.sleep(60)
+    time.sleep(60)                                                                            # Waiting until the gatekeeper is up
     proxySg = util.create_sg(ec2_client, 'proxySg', instanceIds[-2][1], 'proxy')              # create security group to allow traffic only from the gatekeeper
     storeIpAddresses(instanceIds[4])
     subprocess.run(['sh', './setProxy.sh'])
     instanceIds.append(launch_instance(KPName, 't2.large', ClusterPrivateIps[-3], 'proxy', proxySg))   # launching proxy
 
-    initiate_gatekeeper(instancesIds[-1][1])                                                  # Initiating the gatekeeper with the proxy public ip as the trusted host
+    initiate_gatekeeper(instanceIds[-1][1])                                                  # Initiating the gatekeeper with the proxy public ip as the trusted host
     
 
 

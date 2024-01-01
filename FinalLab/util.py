@@ -27,14 +27,14 @@ def create_sg(ec2_client, sc1_name='3rd-Tp-sg', gateIp=None, role=None):
                         VpcId=fetch_vpc())
 
 
-    # creating inbound rule, authorizing every port and protocol
+    # creating inbound rule, differs depending on the role of the instance
     if role == "proxy":
         ec2_client.authorize_security_group_ingress(
                 GroupId=sg1_id.group_id,
                 IpProtocol='tcp',    
                 FromPort=443,          
                 ToPort=443,       
-                CidrIp=gateIp 
+                CidrIp=gateIp   #accepts only request from the gatekeeper
             )
     else:
         ec2_client.authorize_security_group_ingress(
